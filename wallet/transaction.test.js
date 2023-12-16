@@ -17,7 +17,7 @@ describe('Transaction', () => {
 
   describe('outputMap', () => {
     it('has an outputmap ?', () => {
-      expect(transaction).toHaveProperty('outputmap');
+      expect(transaction).toHaveProperty('outputMap');
     });
 
     it('outputs the amount to the recipient', () => {
