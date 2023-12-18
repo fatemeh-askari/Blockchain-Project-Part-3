@@ -10,15 +10,19 @@ const app = express();
 
 
 const blockchain = new Blockchain();
-const pubsub = new Pubsub({blockchain});
 const transactionPool = new TransactionPool();
 const wallet = new Wallet();
+const pubsub = new Pubsub({blockchain, transactionPool});
 
 
 app.use(express.json());
 
 app.get('/api/blocks', (req, res) => {
   res.json(blockchain.chain);
+});
+
+app.get('/api/transaction-pool-map', (req, res) => {
+  res.json(transactionPool.transactionMap);
 });
 
 app.post('/api/transact', (req, res) => {
@@ -37,7 +41,8 @@ app.post('/api/transact', (req, res) => {
     return res.json({type: 'error', message: error.message})
   }
   transactionPool.setTransaction(transaction);
-  console.log('transactionPool is:', transactionPool);
+  pubsub.broadcastTransaction(transaction);
+  // console.log('transactionPool is:', transactionPool);
   res.json({transaction});
 });
 
