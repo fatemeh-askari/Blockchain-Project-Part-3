@@ -1,6 +1,8 @@
 const Block = require('./block');
 const Blockchain = require('./index');
 const cryptoHash = require('./../util/crypto-hash');
+const Wallet = require('../wallet');
+const Transaction = require('../wallet/transaction');
 
 describe ('Blockchain', () => {
   let blockchain, newChain, originalChain;
@@ -150,5 +152,78 @@ describe ('Blockchain', () => {
         })
       })
     })
-  })
+  });
+
+  describe('validTransactionData()', () => {
+    let transaction, rewardTransaction, wallet;
+
+    beforeEach(() => {
+      wallet = new Wallet();
+      transaction = wallet.createTransaction({recipient: 'foo-recipient', amount: 65});
+      rewardTransaction = Transaction.rewardTransaction({minerWallet: wallet});
+    });
+
+    describe('and the transaction data is valid', () => {
+      it('returns true', () => {
+        newChain.addBlock({ data : [transaction, rewardTransaction]});
+        expect(blockchain.validTransactionData({chain: newChain.chain})).toBe(true);
+      })
+    });
+
+    describe('and the transaction data has multiple rewards', () => {
+      it('returns false', () => {
+        newChain.addBlock({data: [transaction, rewardTransaction, rewardTransaction]});
+        expect(blockchain.validTransactionData({chain: newChain.chain})).toBe(false);
+      })
+    });
+
+    describe('and the transaction data has at least one malformed outputMap', () => {
+      describe('and the transaction is not reward transaction', () => {
+        it('returns false', () => {
+          transaction.outputMap[wallet.publicKey] = 99999;
+          newChain.addBlock({data: [transaction, rewardTransaction]});
+          expect(blockchain.validTransactionData({chain: newChain.chain})).toBe(false);
+        })
+      });
+
+      describe('and the transaction is a reward transaction', () => {
+        it('returns false', () => {
+          rewardTransaction.outputMap[wallet.publicKey] = 99999;
+          newChain.addBlock({data: [transaction, rewardTransaction]});
+          expect(blockchain.validTransactionData({chain: newChain.chain})).toBe(false);
+        })
+      });
+    });
+
+    describe('and the transaction data has at least one malformed input', () => {
+      it('returns false', () => {
+        wallet.balance = 9000;
+
+        const evilOutputMap = {
+          fooRecipient: 100,
+          [wallet.publicKey]: 8900,
+        }
+
+        const evilTransaction = {
+          input: {
+            timestamp: Date.now(),
+            amount: wallet.balance,
+            address: wallet.publicKey,
+            signature: wallet.sign(evilOutputMap)
+          },
+          outputMap: evilOutputMap
+        }
+
+        newChain.addBlock({data: [evilTransaction, rewardTransaction]});
+        expect(blockchain.validTransactionData({chain: newChain.chain})).toBe(false);
+      })
+    });
+
+    describe('and a block contains multiple identical transactions', () => {
+      it('returns false', () => {
+        newChain.addBlock({data: [transaction, transaction, rewardTransaction]});
+        expect(blockchain.validTransactionData({chain: newChain.chain})).toBe(false);
+      })
+    });
+  });
 });
